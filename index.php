@@ -8,6 +8,7 @@ use DI\ContainerBuilder;
 
 require __DIR__ . './vendor/autoload.php';
 require __DIR__ . './database.php';
+require __DIR__ . './menu.php';
 
 date_default_timezone_set('Asia/Manila');
 
@@ -20,10 +21,17 @@ $container = $containerBuilder->build();
 $container->set('renderer', $renderer );
 
 // Site info
-$container->set('site_info', [
+$site_info = [
     "app_name" => 'INVENTORY',
     "url" => 'http://localhost'
-]);
+];
+$container->set('site_info', $site_info);
+// Menu
+$menu = new Menu($site_info);
+$container->set('menu', $menu);
+// Database
+$db = new Db( 'localhost', 'username', 'password', 'pos' );
+$container->set('db', $db);
 
 // Create App
 AppFactory::setContainer($container);
@@ -34,10 +42,11 @@ $app->addErrorMiddleware(true, false, false);
 
 // Session middleware
 $app->add(function(Request $request, RequestHandler $handler) {
-    global $db;
+    $db = $this->get('db');
 
     session_start();
 
+    // Check authentication
     if(!isset($_SESSION['userid']) && $request->getUri()->getPath() !== '/auth') {
         return redirect($request, '/auth');
     }elseif(isset($_SESSION['userid']) && $request->getUri()->getPath() === '/auth') {
@@ -45,12 +54,27 @@ $app->add(function(Request $request, RequestHandler $handler) {
     }
 
     $response = $handler->handle($request);
+
+    // Check authorization
+    if( isset($_SESSION['userid']) ) {
+        if( !checkAuth($request->getUri()->getPath(), $_SESSION['role'], $this->get('menu')) ) {
+            $response = $response
+                ->withStatus(302)
+                ->withHeader('ContentType', 'text/html')
+                ->withBody(new \Slim\Psr7\Stream(fopen('php://temp', 'r+'))); // Empty response body
+            
+            $response->getBody()->write("Unauthorized");
+        }
+    }
+
     session_write_close(); // Save z close the session
     return $response;
 });
 
 $app->get('/auth', function(Request $request, Response $response, $args) {
-    $renderer = $this->get('renderer');
+    $renderer = new PhpRenderer('src', ['title' => 'POS']);
+    $renderer->setLayout('login_layout.php');
+    
     return $renderer->render($response, 'login.php', [
         'title' => 'Login',
         'auth' => true,
@@ -60,7 +84,7 @@ $app->get('/auth', function(Request $request, Response $response, $args) {
 });
 
 $app->post('/auth', function(Request $request, Response $response, $args) {
-    global $db;
+    $db = $this->get('db');
 
     $post = $request->getParsedBody();
 
@@ -97,20 +121,22 @@ $app->post('/auth', function(Request $request, Response $response, $args) {
 });
 
 $app->get('/logout', function(Request $request, Response $response, $args) {
-    global $db;
+    $db = $this->get('db');
+
     $db->clearUserData();
     session_destroy();
     return redirect($request, '/auth');
 });
 
 $app->get('/', function(Request $request, Response $response, $args) {
-    global $db;
+    $db = $this->get('db');
 
     $renderer = $this->get('renderer');
     return $renderer->render($response, 'pos.php', [
         'title' => 'POS',
         'args' => $args,
-        'site_info' => $this->get('site_info')
+        'site_info' => $this->get('site_info'),
+        'menu' => $this->get('menu')->getMenu($_SESSION['role'])
     ]);
 });
 
@@ -125,12 +151,13 @@ $app->get('/stocks', function(Request $request, Response $response, $args) {
         'args' => $args,
         'stocks' => $results,
         'pagination' => $pagination,
-        'site_info' => $this->get('site_info')
+        'site_info' => $this->get('site_info'),
+        'menu' => $this->get('menu')->getMenu($_SESSION['role'])
     ]);
 });
 
 $app->post('/stocks', function(Request $request, Response $response, $args) {
-    global $db;
+    $db = $this->get('db');
 
     $post = $request->getParsedBody();
 
@@ -151,7 +178,8 @@ $app->post('/stocks', function(Request $request, Response $response, $args) {
 });
 
 $app->get('/products', function(Request $request, Response $response, $args) {
-    global $db;
+    $db = $this->get('db');
+
     $results = $db->queryAll("SELECT * FROM products");
     $pagination = $db->pagination('products');
 
@@ -161,15 +189,15 @@ $app->get('/products', function(Request $request, Response $response, $args) {
         'args' => $args,
         'products' => $results,
         'pagination' => $pagination,
-        'site_info' => $this->get('site_info')
+        'site_info' => $this->get('site_info'),
+        'menu' => $this->get('menu')->getMenu($_SESSION['role'])
     ]);
 });
 
 $app->post('/products', function(Request $request, Response $response, $args) {
-    global $db;
+    $db = $this->get('db');
 
     $post = $request->getParsedBody();
-
     $ID = $db->escape($post['ID']);
     $barcode = $db->escape($post['barcode']);
     $product = $db->escape($post['product']);
@@ -210,7 +238,8 @@ $app->post('/products', function(Request $request, Response $response, $args) {
 });
 
 $app->get('/users', function(Request $request, Response $response, $args) {
-    global $db;
+    $db = $this->get('db');
+
     $results = $db->queryAll("SELECT * FROM users");
     $pagination = $db->pagination('users');
 
@@ -220,12 +249,13 @@ $app->get('/users', function(Request $request, Response $response, $args) {
         'args' => $args,
         'users' => $results,
         'pagination' => $pagination,
-        'site_info' => $this->get('site_info')
+        'site_info' => $this->get('site_info'),
+        'menu' => $this->get('menu')->getMenu($_SESSION['role'])
     ]);
 });
 
 $app->post('/users', function(Request $request, Response $response, $args) {
-    global $db;
+    $db = $this->get('db');
 
     $post = $request->getParsedBody();
     $ID = $db->escape($post['ID']);
@@ -254,7 +284,7 @@ $app->post('/users', function(Request $request, Response $response, $args) {
         $alert = $result > 0 ? 'User updated successfully!' : 'Unable to update user > '.$db->error();
         $db->log('/users', 'Update User ['.$ID.']', $alert, $post);
         $redirect = "?";
-        if($ID == $db->getUser()['ID']) {
+        if($ID == $db->getUser()['ID'] && !empty($password)) {
             $redirect = $this->get('site_info')['url']."/logout";
         }
         $response->getBody()->write('<script>alert("'.$alert.'"); document.location = "'.$redirect.'";</script>');
@@ -263,18 +293,20 @@ $app->post('/users', function(Request $request, Response $response, $args) {
 });
 
 $app->get('/reports', function(Request $request, Response $response, $args) {
-    global $db;
+    $db = $this->get('db');
 
     $renderer = $this->get('renderer');
     return $renderer->render($response, 'reports.php', [
         'title' => 'Reports',
         'args' => $args,
-        'site_info' => $this->get('site_info')
+        'site_info' => $this->get('site_info'),
+        'menu' => $this->get('menu')->getMenu($_SESSION['role'])
     ]);
 });
 
 $app->get('/logs', function(Request $request, Response $response, $args) {
-    global $db;
+    $db = $this->get('db');
+
     $results = $db->queryAll("SELECT * FROM logs ORDER BY date_logged DESC");
     $pagination = $db->pagination('logs');
 
@@ -284,12 +316,13 @@ $app->get('/logs', function(Request $request, Response $response, $args) {
         'args' => $args,
         'logs' => $results,
         'pagination' => $pagination,
-        'site_info' => $this->get('site_info')
+        'site_info' => $this->get('site_info'),
+        'menu' => $this->get('menu')->getMenu($_SESSION['role'])
     ]);
 });
 
 $app->post('/delete/{table}', function(Request $request, Response $response, $args) {
-    global $db;
+    $db = $this->get('db');
 
     $post = $request->getParsedBody();
     $table = $db->escape($args['table']);
@@ -314,6 +347,13 @@ function redirect($request, $path = '/') {
     $uri = $request->getUri()->withPath($path);
     $response = new \Slim\Psr7\Response();
     return $response->withHeader('Location', (string)$uri)->withStatus(302);
+}
+
+function checkAuth( $route, $role, $menu ) {
+    $items = $menu->getMenu( $role );
+    $routes = array_column( $items, 'route' );
+
+    return in_array($route, $routes);
 }
 
 // Run app

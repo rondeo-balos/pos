@@ -107,10 +107,8 @@ class Db {
 
         $expiry = base64_encode(strtotime(date('Y-m-d h:i:s'). ' + 10 days'));
         $sql = "UPDATE users SET expiry='$expiry' WHERE ID=$_SESSION[userid]";
-        $sql = "SELECT username, role, expiry FROM users WHERE ID=$_SESSION[userid]";
+        $sql = "SELECT ID, username, role, expiry FROM users WHERE ID=$_SESSION[userid]";
         return $this->query($sql);
     }
 
 }
-
-$db = new Db( 'localhost', 'username', 'password', 'pos' );

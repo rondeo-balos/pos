@@ -3,42 +3,14 @@
         <div class="container-fluid py-3 border-bottom text-center mb-2 bg-dark">
             <strong class="h5 brand-title"><?= $site_info['app_name'] ?></strong>
         </div>
-        <?php if( $_SESSION['role'] == 'cashier' || $_SESSION['role'] == 'admin' ): ?>
-        <a href="<?= $site_info['url'] ?>/">
-            <li class="nav-link">
-                <span class="mx-2"><i class="fas fa-calculator"></i> POS</span> <i class="fas fa-calculator"></i>
-            </li>
-        </a>
-        <?php endif; ?>
-        <?php if( $_SESSION['role'] == 'manager' || $_SESSION['role'] == 'admin' ): ?>
-        <a href="<?= $site_info['url'] ?>/stocks">
-            <li class="nav-link">
-                <span class="mx-2"><i class="fas fa-list"></i> Stocks</span> <i class="fas fa-list"></i>
-            </li>
-        </a>
-        <a href="<?= $site_info['url'] ?>/products">
-            <li class="nav-link">
-                <span class="mx-2"><i class="fas fa-boxes"></i> Products</span> <i class="fas fa-boxes"></i>
-            </li>
-        </a>
-        <?php endif; ?>
-        <?php if( $_SESSION['role'] == 'admin' ): ?>
-        <a href="<?= $site_info['url'] ?>/users">
-            <li class="nav-link">
-                <span class="mx-2"><i class="fas fa-users"></i> User Mgmt</span> <i class="fas fa-users"></i>
-            </li>
-        </a>
-        <a href="<?= $site_info['url'] ?>/reports">
-            <li class="nav-link">
-                <span class="mx-2"><i class="fas fa-print"></i> Reports</span> <i class="fas fa-print"></i>
-            </li>
-        </a>
-        <a href="<?= $site_info['url'] ?>/logs">
-            <li class="nav-link">
-                <span class="mx-2"><i class="fas fa-clipboard-list"></i> Logs</span> <i class="fas fa-clipboard-list"></i>
-            </li>
-        </a>
-        <?php endif; ?>
+        <?php foreach( $menu as $item ): ?>
+            <a href="<?= $site_info['url'].$item['route'] ?>">
+                <li class="nav-link">
+                    <span class="mx-2"><i class="<?= $item['icon'] ?>"></i> <?= $item['title'] ?></span> <i class="<?= $item['icon'] ?>"></i>
+                </li>
+            </a>
+        <?php endforeach; ?>
+        
         <a href="<?= $site_info['url'] ?>/logout">
             <li class="nav-link">
                 <span class="mx-2"><i class="fas fa-sign-out-alt"></i> Logout</span> <i class="fas fa-sign-out-alt"></i>
