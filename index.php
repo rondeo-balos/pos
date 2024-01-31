@@ -58,12 +58,15 @@ $app->add(function(Request $request, RequestHandler $handler) {
     // Check authorization
     if( isset($_SESSION['userid']) ) {
         if( !checkAuth($request->getUri()->getPath(), $_SESSION['role'], $this->get('menu')) ) {
-            $response = $response
-                ->withStatus(302)
+            $response = $response->withStatus(401)
                 ->withHeader('ContentType', 'text/html')
                 ->withBody(new \Slim\Psr7\Stream(fopen('php://temp', 'r+'))); // Empty response body
-            
-            $response->getBody()->write("Unauthorized");
+
+            $renderer = new PhpRenderer('src', ['title' => 'POS']);
+            $renderer->setLayout('unauthorized.php');
+            $renderer->render($response, '401.php', [
+                'title' => 'Unauthorized'
+            ]);
         }
     }
 
@@ -73,7 +76,7 @@ $app->add(function(Request $request, RequestHandler $handler) {
 
 $app->get('/auth', function(Request $request, Response $response, $args) {
     $renderer = new PhpRenderer('src', ['title' => 'POS']);
-    $renderer->setLayout('login_layout.php');
+    $renderer->setLayout('unauthorized.php');
     
     return $renderer->render($response, 'login.php', [
         'title' => 'Login',
@@ -98,10 +101,11 @@ $app->post('/auth', function(Request $request, Response $response, $args) {
         $_SESSION['expiry'] = $result['expiry'];
 
         $db->fetchUserData();
-
-        $redirect = '/';
-        if($result['role'] == 'manager') {
-            $redirect = '/stocks';
+        
+        $redirects = $this->get('menu')->redirects;
+        $redirect = $redirects['cashier'];
+        if(isset($redirects[$_SESSION['role']])) {
+            $redirect = $redirects[$_SESSION['role']];
         }
 
         return redirect($request, $redirect);
@@ -350,6 +354,14 @@ function redirect($request, $path = '/') {
 }
 
 function checkAuth( $route, $role, $menu ) {
+    // Define public routes that don't require authorization
+    $publicRoutes = ['/auth', '/logout', '/unauthorized'];
+
+    // If the route is public, no need for authorization check
+    if (in_array($route, $publicRoutes)) {
+        return true;
+    }
+
     $items = $menu->getMenu( $role );
     $routes = array_column( $items, 'route' );
 

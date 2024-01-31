@@ -11,6 +11,12 @@ class Menu {
         'admin' => [1,2,3,4,5,6]
     ];
 
+    public $redirects = [
+        'cashier' => '/',
+        'manager' => '/stocks',
+        'admin' => '/reports'
+    ];
+
     public function __construct( $site_info ){
         $this->site_info = $site_info;
 
