@@ -53,11 +53,10 @@ $app->add(function(Request $request, RequestHandler $handler) {
         return redirect($request, '/');
     }
 
-    $response = $handler->handle($request);
-
     // Check authorization
     if( isset($_SESSION['userid']) ) {
         if( !checkAuth($request->getUri()->getPath(), $_SESSION['role'], $this->get('menu')) ) {
+            $response = new \Slim\Psr7\Response();
             $response = $response->withStatus(401)
                 ->withHeader('ContentType', 'text/html')
                 ->withBody(new \Slim\Psr7\Stream(fopen('php://temp', 'r+'))); // Empty response body
@@ -67,10 +66,16 @@ $app->add(function(Request $request, RequestHandler $handler) {
             $renderer->render($response, '401.php', [
                 'title' => 'Unauthorized'
             ]);
+
+            session_write_close(); // Save and close the session
+            return $response;
         }
     }
 
-    session_write_close(); // Save z close the session
+    // Continue with the middleware stack only if the authorization check passes
+    $response = $handler->handle($request);
+
+    session_write_close(); // Save and close the session
     return $response;
 });
 
@@ -80,13 +85,15 @@ $app->get('/auth', function(Request $request, Response $response, $args) {
     
     return $renderer->render($response, 'login.php', [
         'title' => 'Login',
-        'auth' => true,
         'args' => $args,
         'site_info' => $this->get('site_info')
     ]);
 });
 
 $app->post('/auth', function(Request $request, Response $response, $args) {
+    $renderer = new PhpRenderer('src', ['title' => 'POS']);
+    $renderer->setLayout('unauthorized.php');
+
     $db = $this->get('db');
 
     $post = $request->getParsedBody();
@@ -94,34 +101,38 @@ $app->post('/auth', function(Request $request, Response $response, $args) {
     $username = $db->escape($post['username']);
     $password = $db->escape($post['password']);
 
-    $result = $db->query( "SELECT * FROM users WHERE username='$username' AND password=MD5('$password')" );
+    $result = $db->query( "SELECT * FROM users WHERE username='$username'" );
     if($result) {
-        $_SESSION['userid'] = $result['ID'];
-        $_SESSION['role'] = $result['role'];
-        $_SESSION['expiry'] = $result['expiry'];
 
-        $db->fetchUserData();
-        
-        $redirects = $this->get('menu')->redirects;
-        $redirect = $redirects['cashier'];
-        if(isset($redirects[$_SESSION['role']])) {
-            $redirect = $redirects[$_SESSION['role']];
+        $password = $result['password'];
+        if(password_verify($post['password'], $password)) {
+            $_SESSION['userid'] = $result['ID'];
+            $_SESSION['role'] = $result['role'];
+            $_SESSION['expiry'] = $result['expiry'];
+
+            $db->fetchUserData();
+            
+            $redirects = $this->get('menu')->redirects;
+            $redirect = $redirects['cashier'];
+            if(isset($redirects[$_SESSION['role']])) {
+                $redirect = $redirects[$_SESSION['role']];
+            }
+
+            return redirect($request, $redirect);
+        } else {
+            $error = "Invalid credentials";
         }
-
-        return redirect($request, $redirect);
     } else {
-        
-        $db->log('/auth', 'Login Error', 'User ['.$username.'] attempting to login', $post);
-        $renderer = $this->get('renderer');
-        return $renderer->render($response, 'login.php', [
-            'title' => 'Login Error',
-            'auth' => true,
-            'args' => $args,
-            'site_info' => $this->get('site_info'),
-            'error' => 'Invalid login'
-        ]);
+        $error = "User not found";
     }
     
+    $db->log('/auth', $error, 'User ['.$username.'] attempting to login', $post);
+    return $renderer->render($response, 'login.php', [
+        'title' => 'Login Error',
+        'args' => $args,
+        'site_info' => $this->get('site_info'),
+        'error' => $error
+    ]);
 });
 
 $app->get('/logout', function(Request $request, Response $response, $args) {
@@ -271,15 +282,20 @@ $app->post('/users', function(Request $request, Response $response, $args) {
     $expiry = base64_encode(strtotime(date('Y-m-d h:i:s'). ' + 10 days'));
 
     if($ID == '-1') { // Insert
+        $password = password_hash($password, PASSWORD_DEFAULT);
         $sql = "INSERT INTO users (username, password, name, phone, role, expiry)
-            VALUES ('$username', MD5('$password'), '$name', '$phone', '$role', '$expiry')";
+            VALUES ('$username', '$password', '$name', '$phone', '$role', '$expiry')";
         $result = $db->query($sql);
 
         $alert = $result > 0 ? 'User added successfully!' : 'Unable to add user > '.$db->error();
         $db->log('/users', 'Add New User ['.$result.']', $alert, $post);
         $response->getBody()->write('<script>alert("'.$alert.'"); document.location = "?";</script>');
     } else { // Update
-        $password_update = !empty($password) ? ", password=MD5('$password')" : "";
+        $password_update = "";
+        if(!empty($password)){
+            $password = password_hash($password, PASSWORD_DEFAULT);
+            $password_update = ", password='$password'";
+        }
         $sql = "UPDATE users
             SET username='$username', name='$name', phone='$phone', role='$role', expiry='$expiry'$password_update
             WHERE ID=$ID";
@@ -325,6 +341,18 @@ $app->get('/logs', function(Request $request, Response $response, $args) {
     ]);
 });
 
+$app->get('/settings', function(Request $request, Response $response, $args) {
+    $db = $this->get('db');
+
+    $renderer = $this->get('renderer');
+    return $renderer->render($response, 'settings.php', [
+        'title' => 'Settings',
+        'args' => $args,
+        'site_info' => $this->get('site_info'),
+        'menu' => $this->get('menu')->getMenu($_SESSION['role'])
+    ]);
+});
+
 $app->post('/delete/{table}', function(Request $request, Response $response, $args) {
     $db = $this->get('db');
 
@@ -347,6 +375,53 @@ $app->post('/delete/{table}', function(Request $request, Response $response, $ar
     return $response;
 });
 
+$app->get('/scanner', function(Request $request, Response $response, $args) {
+    $renderer = new PhpRenderer('src', ['title' => 'POS']);
+    $renderer->setLayout('unauthorized.php');
+    
+    return $renderer->render($response, 'scanner.php', [
+        'title' => 'Scanner',
+        'args' => $args,
+        'site_info' => $this->get('site_info')
+    ]);
+});
+
+$app->post('/fetchCart', function(Request $request, Response $response, $args) {
+    $db = $this->get('db');
+
+    $sql = "SELECT * FROM cart INNER JOIN products WHERE cart.product_id = products.ID AND cart.session=''";
+    $result = $db->queryAll($sql);
+
+    $payload = json_encode($result);
+    $response->getBody()->write($payload);
+    return $response->withHeader('Content-Type', 'application/json');
+});
+
+$app->post('/fetch/{barcode}', function(Request $request, Response $response, $args) {
+    $db = $this->get('db');
+    
+    $barcode = $db->escape($args['barcode']);
+
+        $sql = "SELECT * FROM products
+            INNER JOIN stocks ON products.ID = stocks.product_id 
+            WHERE products.barcode = '$barcode' AND stocks.count > 0";
+    $result = $db->query($sql);
+    if($result > 0) {
+        $product_id = $result['product_id'];
+        $sql = "INSERT INTO CART (session, product_id, quantity) 
+            VALUES ('', $product_id, 1)
+            ON DUPLICATE KEY UPDATE quantity = quantity + 1";
+        $db->query($sql);
+
+        $result = 1;
+    } else {
+        $result = 0;
+    }
+
+    $response->getBody()->write($result.'');
+    return $response;
+});
+
 function redirect($request, $path = '/') {
     $uri = $request->getUri()->withPath($path);
     $response = new \Slim\Psr7\Response();
@@ -355,10 +430,18 @@ function redirect($request, $path = '/') {
 
 function checkAuth( $route, $role, $menu ) {
     // Define public routes that don't require authorization
-    $publicRoutes = ['/auth', '/logout', '/unauthorized'];
+    $publicRoutes = ['/auth', '/logout', '/unauthorized', '/fetch/*'];
 
     // If the route is public, no need for authorization check
-    if (in_array($route, $publicRoutes)) {
+    //if (in_array($route, $publicRoutes)) {
+    //    return true;
+    //}
+    // If the route is public or matches a wildcard route, no need for authorization check
+    $isPublic = array_reduce($publicRoutes, function ($carry, $publicRoute) use ($route) {
+        return $carry || ($publicRoute === $route || (strpos($publicRoute, '/*') !== false && strpos($route, rtrim($publicRoute, '/*')) === 0));
+    }, false);
+
+    if ($isPublic) {
         return true;
     }
 

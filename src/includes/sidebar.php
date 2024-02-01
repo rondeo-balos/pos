@@ -4,6 +4,7 @@
             <strong class="h5 brand-title"><?= $site_info['app_name'] ?></strong>
         </div>
         <?php foreach( $menu as $item ): ?>
+            <?php if( $item['title'] == -1 ) continue; ?>
             <a href="<?= $site_info['url'].$item['route'] ?>">
                 <li class="nav-link">
                     <span class="mx-2"><i class="<?= $item['icon'] ?>"></i> <?= $item['title'] ?></span> <i class="<?= $item['icon'] ?>"></i>

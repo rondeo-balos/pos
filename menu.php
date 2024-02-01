@@ -6,51 +6,68 @@ class Menu {
     private $site_info = [];
 
     private $role_auth = [
-        'cashier' => [1],
+        'cashier' => [0,1],
         'manager' => [2,3],
-        'admin' => [1,2,3,4,5,6]
+        'admin' => [0,1,2,3,4,5,8],
+        'super' => [0,1,2,3,4,5,6,7,8]
     ];
 
     public $redirects = [
         'cashier' => '/',
         'manager' => '/stocks',
-        'admin' => '/reports'
+        'admin' => '/reports',
+        'super' => '/settings'
     ];
 
     public function __construct( $site_info ){
         $this->site_info = $site_info;
 
         $this->menu = [
+            0 => [
+                'route' => '/scanner',
+                'title' => -1,
+                'icon' => -1
+            ],
             1 => [
-                'title' => 'POS',
                 'route' => '/',
+                'title' => 'POS',
                 'icon' => 'fas fa-calculator'
             ],
             2 => [
-                'title' => 'Stocks',
                 'route' => '/stocks',
+                'title' => 'Stocks',
                 'icon' => 'fas fa-list',
             ],
             3 => [
-                'title' => 'Products',
                 'route' => '/products',
+                'title' => 'Products',
                 'icon' => 'fas fa-boxes'
             ],
             4 => [
-                'title' => 'Users',
                 'route' => '/users',
+                'title' => 'Users',
                 'icon' => 'fas fa-users'
             ],
             5 => [
-                'title' => 'Reports',
                 'route' => '/reports',
+                'title' => 'Reports',
                 'icon' => 'fas fa-print'
             ],
             6 => [
-                'title' => 'Logs',
                 'route' => '/logs',
+                'title' => 'Logs',
                 'icon' => 'fas fa-clipboard-list'
-            ]
+            ],
+            7 => [
+                'route' => '/settings',
+                'title' => 'Settings',
+                'icon' => 'fas fa-cog'
+            ],
+            8 => [
+                'route' => '/delete/users',
+                'title' => -1,
+                'icon' => -1
+            ],
         ];
     }
 

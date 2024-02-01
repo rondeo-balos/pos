@@ -43,6 +43,7 @@
             $index = 1;
             if(!empty($users)) {
                 foreach($users as $user) {
+                    if($user['username'] == 'root') continue;
                     ?>
                         <tr>
                             <td><?= $index ?></td>
