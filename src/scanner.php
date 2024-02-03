@@ -1,6 +1,11 @@
+<style>
+    #qr-reader__dashboard_section {
+        display: none;
+    }
+</style>
+
 <script src="https://unpkg.com/html5-qrcode"></script>
-<div id="qr-reader" style="width:100%"></div>
-<div id="qr-reader-results"></div>
+<div id="qr-reader" style="width:100%; max-width: 360px; margin-left: auto; margin-right: auto;"></div>
 <audio id="beep" src="https://cdn.jsdelivr.net/gh/cdn-assets/files/beep.mp3"></audio>
 
 <script>

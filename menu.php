@@ -6,10 +6,10 @@ class Menu {
     private $site_info = [];
 
     private $role_auth = [
-        'cashier' => [0,1],
-        'manager' => [2,3],
-        'admin' => [0,1,2,3,4,5,8],
-        'super' => [0,1,2,3,4,5,6,7,8]
+        'cashier' => [0,1,9],
+        'manager' => [2,3,10],
+        'admin' => [0,1,2,3,4,5,8,9,10],
+        'super' => [0,1,2,3,4,5,6,7,8,9,10]
     ];
 
     public $redirects = [
@@ -68,6 +68,16 @@ class Menu {
                 'title' => -1,
                 'icon' => -1
             ],
+            9 => [
+                'route' => '/verifyPurchase',
+                'title' => -1,
+                'icon' => -1
+            ],
+            10 => [
+                'route' => '/getAlert',
+                'title' => -1,
+                'icon' => -1
+            ]
         ];
     }
 

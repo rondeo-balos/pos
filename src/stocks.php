@@ -48,7 +48,7 @@
                             <td><?= $stock['count'] ?></td>
                             <td><?= date('F d, Y H:i A') ?></td>
                             <td class="text-center">
-                                <a href="#" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal" onclick='editCallback(<?= json_encode($stock) ?>, ["ID", "barcode", "product", "price_buy", "price_sell", "count", "last_stock"])'><i class="fa fa-plus"></i> Re-stock</a>
+                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal" id="product<?= $stock['barcode'] ?>" onclick='editCallback(<?= json_encode($stock) ?>, ["ID", "barcode", "product", "price_buy", "price_sell", "count", "last_stock"])'><i class="fa fa-plus"></i> Re-stock</button>
                             </td>
                         </tr>
                     <?php
@@ -115,6 +115,23 @@
         </div>
     </div>
 </div>
+
+<script>
+    setInterval(function() {
+        $.ajax('<?= $site_info['url'] ?>/getAlert', {
+            method: 'POST',
+            data: [],
+            success: function(response) {
+                console.log(response);
+                if(response) {
+                    if(response.route == '/stocks') {
+                        $('#product'+response.barcode).click();
+                    }
+                }
+            }
+        });
+    }, 1000);
+</script>
 
 <style>
     a[href*="/stocks"] .nav-link {

@@ -145,6 +145,7 @@ $app->get('/logout', function(Request $request, Response $response, $args) {
 
 $app->get('/', function(Request $request, Response $response, $args) {
     $db = $this->get('db');
+    $db->setRoute('/');
 
     $renderer = $this->get('renderer');
     return $renderer->render($response, 'pos.php', [
@@ -157,6 +158,8 @@ $app->get('/', function(Request $request, Response $response, $args) {
 
 $app->get('/stocks', function(Request $request, Response $response, $args) {
     global $db;
+    $db->setRoute('/stocks');
+
     $results = $db->queryAll("SELECT stocks.ID AS ID, barcode, product, price_buy, price_sell, count, last_stocked FROM products INNER JOIN stocks WHERE stocks.product_id = products.ID");
     $pagination = $db->pagination('products');
 
@@ -194,6 +197,7 @@ $app->post('/stocks', function(Request $request, Response $response, $args) {
 
 $app->get('/products', function(Request $request, Response $response, $args) {
     $db = $this->get('db');
+    $db->setRoute('/products');
 
     $results = $db->queryAll("SELECT * FROM products");
     $pagination = $db->pagination('products');
@@ -389,7 +393,7 @@ $app->get('/scanner', function(Request $request, Response $response, $args) {
 $app->post('/fetchCart', function(Request $request, Response $response, $args) {
     $db = $this->get('db');
 
-    $sql = "SELECT * FROM cart INNER JOIN products WHERE cart.product_id = products.ID AND cart.session=''";
+    $sql = "SELECT * FROM temp INNER JOIN products WHERE temp.product_id = products.ID AND temp.session=''";
     $result = $db->queryAll($sql);
 
     $payload = json_encode($result);
@@ -402,13 +406,29 @@ $app->post('/fetch/{barcode}', function(Request $request, Response $response, $a
     
     $barcode = $db->escape($args['barcode']);
 
-        $sql = "SELECT * FROM products
-            INNER JOIN stocks ON products.ID = stocks.product_id 
-            WHERE products.barcode = '$barcode' AND stocks.count > 0";
+    switch($db->getRoute()['current']) {
+        case '/':
+            posFetch($db, $barcode, $response);
+            break;
+        case '/products':
+            productFetch($db, $barcode, $response);
+            break;
+        case '/stocks':
+            stockFetch($db, $barcode, $response);
+            break;
+    }
+
+    return $response;
+});
+
+function posFetch($db, $barcode, &$response) {
+    $sql = "SELECT * FROM products
+        INNER JOIN stocks ON products.ID = stocks.product_id 
+        WHERE products.barcode = '$barcode' AND stocks.count > 0";
     $result = $db->query($sql);
     if($result > 0) {
         $product_id = $result['product_id'];
-        $sql = "INSERT INTO CART (session, product_id, quantity) 
+        $sql = "INSERT INTO temp (session, product_id, quantity) 
             VALUES ('', $product_id, 1)
             ON DUPLICATE KEY UPDATE quantity = quantity + 1";
         $db->query($sql);
@@ -420,7 +440,123 @@ $app->post('/fetch/{barcode}', function(Request $request, Response $response, $a
 
     $response->getBody()->write($result.'');
     return $response;
+}
+
+function productFetch($db, $barcode, &$response) {
+
+    $payload = [
+        'route' => '/products',
+        'barcode' => $barcode
+    ];
+
+    $db->setAlert(serialize($payload));
+    $payload = json_encode($payload);
+
+    $response->getBody()->write($payload);
+    $response = $response->withHeader('Content-Type', 'application/json');
+    return $response;
+}
+
+function stockFetch($db, $barcode, &$response) {
+
+    $payload = [
+        'route' => '/stocks',
+        'barcode' => $barcode
+    ];
+
+    $db->setAlert(serialize($payload));
+    $payload = json_encode($payload);
+
+    $response->getBody()->write($payload);
+    $response = $response->withHeader('Content-Type', 'application/json');
+    return $response;
+}
+
+$app->post('/getAlert', function(Request $request, Response $response, $args) {
+    $db = $this->get('db');
+
+    $result = unserialize($db->getAlert()['scan_alert']);
+
+    $payload = json_encode($result);
+    $response->getBody()->write($payload);
+    return $response->withHeader('Content-Type', 'application/json');
 });
+
+$app->post('/verifyPurchase', function(Request $request, Response $response, $args) {
+    $db = $this->get('db');
+
+    $post = $request->getParsedBody();
+    $cash = $db->escape($post['cash']);
+    $customer_name = $db->escape($post['customer_name']);
+    $customer_number = $db->escape($post['customer_number']);
+
+    $payload = [
+        'message' => 'INSUFFICIENT FUNDS',
+        'change' => 0,
+        'order' => 0
+    ];
+
+    $sql = "SELECT *,temp.ID AS tempID FROM temp INNER JOIN products WHERE temp.product_id = products.ID AND temp.session=''";
+    $result = $db->queryAll($sql);
+    
+    $total = 0;
+    $items = [];
+
+    foreach($result as $item) {
+        $items[] = $item['tempID'];
+        $total += (floatval($item['price_sell']) * floatval($item['quantity']));
+    }
+
+    if($cash > $total) {
+        $change = $cash - $total;
+
+        $sql = "INSERT INTO orders (items, customer_name, customer_number, total, cash, changed, status)
+            VALUES ('".serialize($items)."', '$customer_name', '$customer_number', $total, $cash, $change, 'created')";
+        $order = $db->query($sql);
+        if($order > 0) {
+            $payload['message'] = 'CHANGE';
+            $payload['change'] = $change;
+            $payload['order'] = $order;
+
+            foreach($items as $ID) {
+                $sql = "SELECT * FROM temp WHERE ID=$ID";
+                $row = $db->query($sql);
+
+                $insert = "INSERT INTO cart (session, product_id, quantity, date_added) VALUES ('".getSession($db)."',$row[product_id], $row[quantity], '$row[date_added]')";
+                if($db->query($insert)) {
+                    $update = "UPDATE stocks SET count = count - $row[quantity] WHERE product_id = $row[product_id]";
+                    $db->query($update);
+                    $delete = "DELETE FROM temp WHERE ID=$ID";
+                    $db->query($delete);
+                } else {
+                    $db->log('/verifyPurchase', 'Unable to move cart items', $db->error(), $post);
+                    $payload['message'] = 'UNABLE TO OPERATE';
+                    break;
+                }
+            }
+        } else {
+            $db->log('/verifyPurchase', 'Unable to save order', $db->error(), $post);
+            $payload['message'] = 'UNABLE TO SAVE ORDER';
+        }
+    }
+
+    $payload = json_encode($payload);
+    $response->getBody()->write($payload);
+    return $response->withHeader('Content-Type', 'application/json');
+});
+
+function getSession( $db ) {
+    $date_ordered = date('Y-m-d h:i:s');
+
+    $user = $db->getUser();
+    $session = [
+        'user' => $user,
+        'date_ordered' => $date_ordered
+    ];
+    $session = serialize($session);
+
+    return $session;
+}
 
 function redirect($request, $path = '/') {
     $uri = $request->getUri()->withPath($path);

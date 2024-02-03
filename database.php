@@ -107,8 +107,45 @@ class Db {
 
         $expiry = base64_encode(strtotime(date('Y-m-d h:i:s'). ' + 10 days'));
         $sql = "UPDATE users SET expiry='$expiry' WHERE ID=$_SESSION[userid]";
+        $this->query($sql);
+
         $sql = "SELECT ID, username, role, expiry FROM users WHERE ID=$_SESSION[userid]";
         return $this->query($sql);
+    }
+
+    function setRoute($route) {
+        if(!isset($_SESSION['userid']))
+            return;
+
+        $sql = "UPDATE users SET current='$route' WHERE ID=$_SESSION[userid]";
+        $this->query($sql);
+    }
+
+    function getRoute() {
+        if(!isset($_SESSION['userid']))
+            return;
+
+        $sql = "SELECT current FROM users WHERE ID=$_SESSION[userid]";
+        return $this->query($sql);
+    }
+
+    function setAlert($serializedAlert) {
+        if(!isset($_SESSION['userid']))
+            return;
+
+        $sql = "UPDATE users SET scan_alert='$serializedAlert' WHERE ID=$_SESSION[userid]";
+        $this->query($sql);
+    }
+
+    function getAlert() {
+        if(!isset($_SESSION['userid']))
+            return;
+
+        $sql = "SELECT scan_alert FROM users WHERE ID=$_SESSION[userid]";
+        $result = $this->query($sql);
+        $this->query("UPDATE users SET scan_alert='' WHERE ID=$_SESSION[userid]");
+
+        return $result;
     }
 
 }

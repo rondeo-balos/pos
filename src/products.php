@@ -11,7 +11,7 @@
     }
 </script>
 
-<button class="btn btn-primary float-end" data-bs-toggle="modal" data-bs-target="#modal" onclick="addCallback()">Add New Product</button>
+<button class="btn btn-primary float-end" data-bs-toggle="modal" data-bs-target="#modal" id="add" onclick="addCallback()">Add New Product</button>
 <div class="clearfix"></div><br>
 
 <table class="table table-bordered">
@@ -46,7 +46,7 @@
                             <td>₱ <?= number_format($product['price_buy'], 2, '.', ',') ?></td>
                             <td>₱ <?= number_format($product['price_sell'], 2, '.', ',') ?></td>
                             <td class="text-center">
-                                <a href="#" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal" onclick='editCallback(<?= json_encode($product) ?>, ["ID", "barcode", "product", "price_buy", "price_sell"])'><i class="fa fa-pen"></i> Edit</a>
+                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal" id="product<?= $product['barcode'] ?>" onclick='editCallback(<?= json_encode($product) ?>, ["ID", "barcode", "product", "price_buy", "price_sell"])'><i class="fa fa-pen"></i> Edit</button>
                             </td>
                         </tr>
                     <?php
@@ -102,6 +102,22 @@
         </div>
     </div>
 </div>
+
+<script>
+    setInterval(function() {
+        $.ajax('<?= $site_info['url'] ?>/getAlert', {
+            method: 'POST',
+            data: [],
+            success: function(response) {
+                if(response.route == '/products') {
+                    $('#add').click();
+                    $('#product'+response.barcode).click();
+                    $('#barcode').val(response.barcode);
+                }
+            }
+        });
+    }, 1000);
+</script>
 
 <style>
     a[href*="/products"] .nav-link {
