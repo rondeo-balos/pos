@@ -9,7 +9,8 @@ class Db {
     }
 
     public function escape( $str ) {
-        return mysqli_real_escape_string($this->mysqli, $str);
+        $str = mysqli_real_escape_string($this->mysqli, $str);
+        return $str;
     }
 
     public function error() {
