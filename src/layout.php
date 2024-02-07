@@ -34,5 +34,30 @@
                 }
             })
         </script>
+        <div class="toast-container position-fixed top-0 end-0 p-1">
+            <?php if(isset($low_stocks)):
+                $index = 0;
+                foreach($low_stocks as $index => $low_stock): ?>
+                <div id="toast<?= $index ?>" class="toast border border-danger mb-2" role="alert" aria-live="assertive" aria-atomic="true" style="background-color: whitesmoke !important;">
+                    <div class="toast-header">
+                        <strong class="me-auto text-danger"><?= $low_stock['product'] ?></strong>
+                        <small class="text-body-secondary">just now</small>
+                        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        <?= $low_stock['message'] ?>
+                    </div>
+                </div>
+                <script>
+                    // Automatically show the toast when the page loads
+                    document.addEventListener('DOMContentLoaded', function () {
+                        var toastElement = document.getElementById('toast<?= $index ?>');
+                        var toast = new bootstrap.Toast(toastElement);
+                        toast.show();
+                    });
+                </script>
+                <?php $index++; endforeach; 
+        endif; ?>
+        </div>
     </body>
 </html>

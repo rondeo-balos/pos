@@ -7,15 +7,15 @@ class Menu {
 
     private $role_auth = [
         'cashier' => [0,1,9],
-        'manager' => [2,3,10],
-        'admin' => [0,1,2,3,4,5,8,9,10],
-        'super' => [0,1,2,3,4,5,6,7,8,9,10]
+        'manager' => [3,4,10],
+        'admin' => [0,1,2,3,4,5,7,8,9,10,11],
+        'super' => [0,1,2,3,4,5,6,7,8,9,10,11]
     ];
 
     public $redirects = [
         'cashier' => '/',
         'manager' => '/stocks',
-        'admin' => '/reports',
+        'admin' => '/orders',
         'super' => '/settings'
     ];
 
@@ -34,24 +34,24 @@ class Menu {
                 'icon' => 'fas fa-calculator'
             ],
             2 => [
+                'route' => '/orders',
+                'title' => 'Past Orders',
+                'icon' => 'fas fa-clock'
+            ],
+            3 => [
                 'route' => '/stocks',
                 'title' => 'Stocks',
                 'icon' => 'fas fa-list',
             ],
-            3 => [
+            4 => [
                 'route' => '/products',
                 'title' => 'Products',
                 'icon' => 'fas fa-boxes'
             ],
-            4 => [
+            5 => [
                 'route' => '/users',
                 'title' => 'Users',
                 'icon' => 'fas fa-users'
-            ],
-            5 => [
-                'route' => '/reports',
-                'title' => 'Reports',
-                'icon' => 'fas fa-print'
             ],
             6 => [
                 'route' => '/logs',
@@ -77,6 +77,11 @@ class Menu {
                 'route' => '/getAlert',
                 'title' => -1,
                 'icon' => -1
+            ],
+            11 => [
+                'route' => '/analytics',
+                'title' => 'Analytics',
+                'icon' => 'fas fa-chart-bar'
             ]
         ];
     }

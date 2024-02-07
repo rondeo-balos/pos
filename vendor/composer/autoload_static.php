@@ -37,6 +37,7 @@ class ComposerStaticInitd4187c8cd8d5d660ec538faee465d33f
             'Psr\\Http\\Server\\' => 16,
             'Psr\\Http\\Message\\' => 17,
             'Psr\\Container\\' => 14,
+            'Picqer\\Barcode\\' => 15,
         ),
         'L' => 
         array (
@@ -108,6 +109,10 @@ class ComposerStaticInitd4187c8cd8d5d660ec538faee465d33f
         'Psr\\Container\\' => 
         array (
             0 => __DIR__ . '/..' . '/psr/container/src',
+        ),
+        'Picqer\\Barcode\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/picqer/php-barcode-generator/src',
         ),
         'Laravel\\SerializableClosure\\' => 
         array (

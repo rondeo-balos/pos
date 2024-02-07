@@ -13,6 +13,33 @@
 </script>
 
 <p class="p-2 bg-info bg-opacity-50 text-dark border border-primary border-5 border-top-0 border-bottom-0 border-end-0">To automatically add stocks, scan the product directly using a bar code scanner.</p>
+<div class="row">
+    <div class="col-md-8">
+        <form method="GET" id="sort">
+            <div class="row g-3 align-items-center">
+                <div class="col-auto">
+                    <label class="col-form-label">Sort By</label>
+                </div>
+                <div class="col-auto">
+                    <select class="form-select" name="order">
+                        <option value="st_low_high">Stock (Low to High)</option>
+                        <option value="st_high_low">Stock (Low to High)</option>
+                        <option value="na_a_z">Name (A-Z)</option>
+                        <option value="na_z_a">Name (Z-A)</option>
+                    </select>
+                </div>
+            </div>
+        </form>
+        <script>
+            $('[name="order"]').val('<?= $_GET['order'] ?? 'st_low_high' ?>');
+            $('[name="order"]').on('change', function(){
+                $('#sort').submit();
+            });
+        </script>
+    </div>
+</div>
+<div class="clearfix"></div><br>
+
 <table class="table table-bordered">
     <colgroup>
         <col width="1%">
@@ -39,15 +66,16 @@
             $index = 1;
             if(!empty($stocks)) {
                 foreach($stocks as $stock) {
+                    $bg = $stock['count'] < 10 ? 'class="bg-danger bg-opacity-50"':'';
                     ?>
                         <tr>
-                            <td><?= $index ?></td>
-                            <td><img src="https://barcode.tec-it.com/barcode.ashx?data=<?= $stock['barcode'] ?>" class="img-fluid"></td>
-                            <td><?= $stock['product'] ?></td>
-                            <td>₱ <?= number_format($stock['price_sell'], 2, '.', ',') ?></td>
-                            <td><?= $stock['count'] ?></td>
-                            <td><?= date('F d, Y H:i A') ?></td>
-                            <td class="text-center">
+                            <td <?= $bg ?>><?= $index ?></td>
+                            <td <?= $bg ?>><?= $generator->getBarcode($stock['barcode'], $generator::TYPE_CODE_128, 1, 30); ?></td>
+                            <td <?= $bg ?>><?= $stock['product'] ?></td>
+                            <td <?= $bg ?>>₱ <?= number_format($stock['price_sell'], 2, '.', ',') ?></td>
+                            <td <?= $bg ?>><?= $stock['count'] ?></td>
+                            <td <?= $bg ?>><?= date('F d, Y H:i A') ?></td>
+                            <td class="text-center <?= $stock['count'] < 10 ? 'bg-danger bg-opacity-50':'' ?>">
                                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal" id="product<?= $stock['barcode'] ?>" onclick='editCallback(<?= json_encode($stock) ?>, ["ID", "barcode", "product", "price_buy", "price_sell", "count", "last_stock"])'><i class="fa fa-plus"></i> Re-stock</button>
                             </td>
                         </tr>
@@ -122,7 +150,6 @@
             method: 'POST',
             data: [],
             success: function(response) {
-                console.log(response);
                 if(response) {
                     if(response.route == '/stocks') {
                         $('#product'+response.barcode).click();

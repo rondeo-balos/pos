@@ -40,13 +40,9 @@ class Db {
 
     public function queryAll( $sql ) {
         $per_page_record = $this->per_page_record;
-        $page = 1;
-        if(isset($_GET['page'])) {
-            $page = $this->escape( $_GET['page']);
-        }
+        $page = $this->escape( $_GET['page'] ?? 1);
 
         $start_from = ($page-1) * $per_page_record;
-
 
         $query = $this->mysqli->query($sql." LIMIT $start_from, $per_page_record");
         $results = [];
@@ -59,10 +55,8 @@ class Db {
 
     function pagination( $table ) {
         $per_page_record = $this->per_page_record;
-        $page = 1;
-        if(isset($_GET['page'])) {
-            $page = $this->escape($_GET['page']);
-        }
+        $page = $this->escape($_GET['page'] ?? 1);
+        $order = $this->escape($_GET['order'] ?? '');
 
         $sql = "SELECT COUNT(ID) FROM $table";
         $query = $this->mysqli->query($sql);
@@ -75,14 +69,14 @@ class Db {
             $pages[] = [
                 'class' => $i == $page ? 'active' : '',
                 'index' => $i,
-                'link' => '?page='.$i
+                'link' => '?page='.$i . '&order='.$order
             ];
         }
         return [
             'total_pages' => $total_pages,
-            'prev_link' => $page > 1 ? '?page='.($page-1):'#',
+            'prev_link' => $page > 1 ? '?page='.($page-1) . '&order='.$order:'#',
             'prev_class' => $page > 1 ? '':'disabled',
-            'next_link' => $page < $total_pages ? '?page='.($page+1):'#',
+            'next_link' => $page < $total_pages ? '?page='.($page+1) . '&order='.$order:'#',
             'next_class' => $page < $total_pages ? '':'disabled',
             'pages' => $pages
         ];
@@ -109,8 +103,23 @@ class Db {
         $sql = "UPDATE users SET expiry='$expiry' WHERE ID=$_SESSION[userid]";
         $this->query($sql);
 
-        $sql = "SELECT ID, username, role, expiry FROM users WHERE ID=$_SESSION[userid]";
+        $sql = "SELECT ID, username, name, role, expiry FROM users WHERE ID=$_SESSION[userid]";
         return $this->query($sql);
+    }
+
+    public function getOptions() {
+        $site_info = [];
+
+        $sql = "SELECT name, value FROM options WHERE autoload = 1";
+        $result = $this->queryAll($sql);
+
+        if($result) {
+            foreach($result as $row) {
+                $site_info[$row['name']] = $row['value'];
+            }
+        }
+
+        return $site_info;
     }
 
     function setRoute($route) {

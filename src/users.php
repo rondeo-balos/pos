@@ -106,7 +106,7 @@
 
                     <div class="mb-3">
                         <label for="role" class="form-label">Role</label>
-                        <select class="form-control" id="role" name="role" required>
+                        <select class="form-select" id="role" name="role" required>
                             <option value="cashier">Cashier</option>
                             <option value="manager">Manager</option>
                             <option value="admin">Admin</option>

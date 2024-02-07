@@ -20,18 +20,19 @@ $containerBuilder = new ContainerBuilder();
 $container = $containerBuilder->build();
 $container->set('renderer', $renderer );
 
+// Database
+$db = new Db( 'localhost', 'username', 'password', 'pos' );
+$container->set('db', $db);
 // Site info
-$site_info = [
-    "app_name" => 'INVENTORY',
-    "url" => 'http://localhost'
-];
+$site_info = $db->getOptions();
 $container->set('site_info', $site_info);
 // Menu
 $menu = new Menu($site_info);
 $container->set('menu', $menu);
-// Database
-$db = new Db( 'localhost', 'username', 'password', 'pos' );
-$container->set('db', $db);
+
+// Barcode generator
+$generator = new Picqer\Barcode\BarcodeGeneratorHTML();
+$container->set('generator', $generator);
 
 // Create App
 AppFactory::setContainer($container);
@@ -43,6 +44,7 @@ $app->addErrorMiddleware(true, false, false);
 // Session middleware
 $app->add(function(Request $request, RequestHandler $handler) {
     $db = $this->get('db');
+    $site_info = $this->get('site_info');
 
     session_start();
 
@@ -69,6 +71,9 @@ $app->add(function(Request $request, RequestHandler $handler) {
 
             session_write_close(); // Save and close the session
             return $response;
+        } else {
+            $low_stocks = checkStock($db, $site_info['low_stock']);
+            $request = $request->withAttribute('low_stocks', $low_stocks);
         }
     }
 
@@ -78,6 +83,21 @@ $app->add(function(Request $request, RequestHandler $handler) {
     session_write_close(); // Save and close the session
     return $response;
 });
+
+function checkStock($db, $low_stock) {
+    $sql = "SELECT product, count FROM stocks INNER JOIN products WHERE stocks.product_id = products.ID AND stocks.count < $low_stock";
+    $results = $db->queryAll($sql);
+
+    $low_stocks = [];
+    foreach($results as $product) {
+        $low_stocks[] = [
+            'product' => $product['product'],
+            'message' => 'Low Stock! '.$product['count'].' Left.'
+        ];
+    }
+
+    return $low_stocks;
+}
 
 $app->get('/auth', function(Request $request, Response $response, $args) {
     $renderer = new PhpRenderer('src', ['title' => 'POS']);
@@ -137,6 +157,7 @@ $app->post('/auth', function(Request $request, Response $response, $args) {
 
 $app->get('/logout', function(Request $request, Response $response, $args) {
     $db = $this->get('db');
+    $db->setRoute('/logout');
 
     $db->clearUserData();
     session_destroy();
@@ -152,15 +173,44 @@ $app->get('/', function(Request $request, Response $response, $args) {
         'title' => 'POS',
         'args' => $args,
         'site_info' => $this->get('site_info'),
+        'low_stocks' => $request->getAttribute('low_stocks'),
+        'menu' => $this->get('menu')->getMenu($_SESSION['role'])
+    ]);
+});
+
+$app->get('/orders', function(Request $request, Response $response, $args) {
+    $db = $this->get('db');
+    $db->setRoute('/orders');
+
+    $results = $db->queryAll("SELECT * FROM orders");
+    $pagination = $db->pagination('orders');
+
+    $renderer = $this->get('renderer');
+    return $renderer->render($response, 'orders.php', [
+        'title' => 'Past Orders',
+        'args' => $args,
+        'orders' => $results,
+        'pagination' => $pagination,
+        'site_info' => $this->get('site_info'),
+        'low_stocks' => $request->getAttribute('low_stocks'),
         'menu' => $this->get('menu')->getMenu($_SESSION['role'])
     ]);
 });
 
 $app->get('/stocks', function(Request $request, Response $response, $args) {
-    global $db;
+    $db = $this->get('db');
     $db->setRoute('/stocks');
 
-    $results = $db->queryAll("SELECT stocks.ID AS ID, barcode, product, price_buy, price_sell, count, last_stocked FROM products INNER JOIN stocks WHERE stocks.product_id = products.ID");
+    $order = $_GET['order'] ?? '';
+    $sorting_options = [
+        'st_low_high' => 'ORDER BY count ASC',
+        'st_high_low' => 'ORDER BY count DESC',
+        'na_a_z' => 'ORDER BY product ASC',
+        'na_z_a' => 'ORDER BY product DESC'
+    ];
+    $order_clause = $sorting_options[$order] ?? $sorting_options['st_low_high'];
+
+    $results = $db->queryAll("SELECT stocks.ID AS ID, barcode, product, price_buy, price_sell, count, last_stocked FROM products INNER JOIN stocks WHERE stocks.product_id = products.ID $order_clause");
     $pagination = $db->pagination('products');
 
     $renderer = $this->get('renderer');
@@ -170,6 +220,8 @@ $app->get('/stocks', function(Request $request, Response $response, $args) {
         'stocks' => $results,
         'pagination' => $pagination,
         'site_info' => $this->get('site_info'),
+        'low_stocks' => $request->getAttribute('low_stocks'),
+        'generator' => $this->get('generator'),
         'menu' => $this->get('menu')->getMenu($_SESSION['role'])
     ]);
 });
@@ -199,7 +251,16 @@ $app->get('/products', function(Request $request, Response $response, $args) {
     $db = $this->get('db');
     $db->setRoute('/products');
 
-    $results = $db->queryAll("SELECT * FROM products");
+    $order = $_GET['order'] ?? '';
+    $sorting_options = [
+        'st_low_high' => 'ORDER BY count ASC',
+        'st_high_low' => 'ORDER BY count DESC',
+        'na_a_z' => 'ORDER BY product ASC',
+        'na_z_a' => 'ORDER BY product DESC'
+    ];
+    $order_clause = $sorting_options[$order] ?? $sorting_options['na_a_z'];
+
+    $results = $db->queryAll("SELECT * FROM products $order_clause");
     $pagination = $db->pagination('products');
 
     $renderer = $this->get('renderer');
@@ -209,6 +270,8 @@ $app->get('/products', function(Request $request, Response $response, $args) {
         'products' => $results,
         'pagination' => $pagination,
         'site_info' => $this->get('site_info'),
+        'low_stocks' => $request->getAttribute('low_stocks'),
+        'generator' => $this->get('generator'),
         'menu' => $this->get('menu')->getMenu($_SESSION['role'])
     ]);
 });
@@ -258,6 +321,7 @@ $app->post('/products', function(Request $request, Response $response, $args) {
 
 $app->get('/users', function(Request $request, Response $response, $args) {
     $db = $this->get('db');
+    $db->setRoute('/users');
 
     $results = $db->queryAll("SELECT * FROM users");
     $pagination = $db->pagination('users');
@@ -269,6 +333,7 @@ $app->get('/users', function(Request $request, Response $response, $args) {
         'users' => $results,
         'pagination' => $pagination,
         'site_info' => $this->get('site_info'),
+        'low_stocks' => $request->getAttribute('low_stocks'),
         'menu' => $this->get('menu')->getMenu($_SESSION['role'])
     ]);
 });
@@ -316,20 +381,9 @@ $app->post('/users', function(Request $request, Response $response, $args) {
     return $response;
 });
 
-$app->get('/reports', function(Request $request, Response $response, $args) {
-    $db = $this->get('db');
-
-    $renderer = $this->get('renderer');
-    return $renderer->render($response, 'reports.php', [
-        'title' => 'Reports',
-        'args' => $args,
-        'site_info' => $this->get('site_info'),
-        'menu' => $this->get('menu')->getMenu($_SESSION['role'])
-    ]);
-});
-
 $app->get('/logs', function(Request $request, Response $response, $args) {
     $db = $this->get('db');
+    $db->setRoute('/logs');
 
     $results = $db->queryAll("SELECT * FROM logs ORDER BY date_logged DESC");
     $pagination = $db->pagination('logs');
@@ -347,12 +401,40 @@ $app->get('/logs', function(Request $request, Response $response, $args) {
 
 $app->get('/settings', function(Request $request, Response $response, $args) {
     $db = $this->get('db');
+    $db->setRoute('/settings');
 
     $renderer = $this->get('renderer');
     return $renderer->render($response, 'settings.php', [
         'title' => 'Settings',
         'args' => $args,
         'site_info' => $this->get('site_info'),
+        'low_stocks' => $request->getAttribute('low_stocks'),
+        'menu' => $this->get('menu')->getMenu($_SESSION['role'])
+    ]);
+});
+
+$app->get('/analytics', function(Request $request, Response $response, $args) {
+    $db = $this->get('db');
+    $db->setRoute('/analytics');
+
+    $today_sales = $db->query("SELECT SUM(total) AS today_sales FROM orders WHERE DAY(date_ordered) = DAY(CURRENT_DATE)");
+    $this_month_sales = $db->query("SELECT SUM(total) AS this_month_sales FROM orders WHERE YEAR(date_ordered) = YEAR(CURRENT_DATE) AND MONTH(date_ordered) = MONTH(CURRENT_DATE)");
+    
+    $monthly_sales = [];
+    $results = $db->queryAll("SELECT MONTH(date_ordered) AS month, SUM(total) AS monthly_sales FROM  orders WHERE  YEAR(date_ordered) = YEAR(CURRENT_DATE) GROUP BY  MONTH(date_ordered)");
+    foreach($results as $row) {
+        $monthly_sales[] = $row;
+    }
+
+    $renderer = $this->get('renderer');
+    return $renderer->render($response, 'analytics.php', [
+        'title' => 'Analytics',
+        'args' => $args,
+        'today_sales' => $today_sales['today_sales'],
+        'this_month_sales' => $this_month_sales['this_month_sales'],
+        'monthly_sales' => $monthly_sales,
+        'site_info' => $this->get('site_info'),
+        'low_stocks' => $request->getAttribute('low_stocks'),
         'menu' => $this->get('menu')->getMenu($_SESSION['role'])
     ]);
 });
@@ -519,10 +601,11 @@ $app->post('/verifyPurchase', function(Request $request, Response $response, $ar
             $payload['order'] = $order;
 
             foreach($items as $ID) {
-                $sql = "SELECT * FROM temp WHERE ID=$ID";
+                $sql = "SELECT * FROM temp INNER JOIN products WHERE temp.ID=$ID AND temp.product_id = products.ID";
                 $row = $db->query($sql);
 
-                $insert = "INSERT INTO cart (session, product_id, quantity, date_added) VALUES ('".getSession($db)."',$row[product_id], $row[quantity], '$row[date_added]')";
+                $insert = "INSERT INTO cart (tempID, session, product_id, quantity, price_buy, price_sell, subtotal, date_added) 
+                    VALUES ($ID, '".getSession($db)."',$row[product_id], $row[quantity], $row[price_buy], $row[price_sell], ".($row['price_sell']*$row['quantity']).", '$row[date_added]')";
                 if($db->query($insert)) {
                     $update = "UPDATE stocks SET count = count - $row[quantity] WHERE product_id = $row[product_id]";
                     $db->query($update);
@@ -543,6 +626,37 @@ $app->post('/verifyPurchase', function(Request $request, Response $response, $ar
     $payload = json_encode($payload);
     $response->getBody()->write($payload);
     return $response->withHeader('Content-Type', 'application/json');
+});
+
+$app->get('/print/{order}', function(Request $request, Response $response, $args) {
+    $db = $this->get('db');
+    $site_info = $this->get('site_info');
+    $order = $db->escape($args['order']);
+    $cart = [];
+    $cashier = $db->getUser()['name'];
+
+    $sql = "SELECT * FROM orders WHERE ID = $order";
+    $result = $db->query($sql);
+    if($result > 0) {
+        $items = unserialize($result['items']);
+        foreach($items as $item) {
+            $sql = "SELECT * FROM cart INNER JOIN products WHERE cart.tempID = $item AND products.ID = cart.product_id";
+            $cart[] = $db->query($sql);
+        }
+    }
+
+    $renderer = new PhpRenderer('src', ['title' => 'POS']);
+    $renderer->setLayout('unauthorized.php');
+    return $renderer->render($response, 'receipt.php', [
+        'title' => 'Receipt',
+        'args' => $args,
+        'site_info' => $site_info,
+        'menu' => $this->get('menu')->getMenu($_SESSION['role']),
+        'order_id' => $order,
+        'orders' => $result,
+        'cart' => $cart,
+        'cashier' => $cashier
+    ]);
 });
 
 function getSession( $db ) {
@@ -566,7 +680,7 @@ function redirect($request, $path = '/') {
 
 function checkAuth( $route, $role, $menu ) {
     // Define public routes that don't require authorization
-    $publicRoutes = ['/auth', '/logout', '/unauthorized', '/fetch/*'];
+    $publicRoutes = ['/auth', '/logout', '/unauthorized', '/fetch/*', '/print/*'];
 
     // If the route is public, no need for authorization check
     //if (in_array($route, $publicRoutes)) {

@@ -11,7 +11,34 @@
     }
 </script>
 
-<button class="btn btn-primary float-end" data-bs-toggle="modal" data-bs-target="#modal" id="add" onclick="addCallback()">Add New Product</button>
+<p class="p-2 bg-info bg-opacity-50 text-dark border border-primary border-5 border-top-0 border-bottom-0 border-end-0">You can also add or update products by using the scanner.</p>
+
+<div class="row">
+    <div class="col-md-8">
+        <form method="GET" id="sort">
+            <div class="row g-3 align-items-center">
+                <div class="col-auto">
+                    <label class="col-form-label">Sort By</label>
+                </div>
+                <div class="col-auto">
+                    <select class="form-select" name="order">
+                        <option value="na_a_z">Name (A-Z)</option>
+                        <option value="na_z_a">Name (Z-A)</option>
+                    </select>
+                </div>
+            </div>
+        </form>
+        <script>
+            $('[name="order"]').val('<?= $_GET['order'] ?? 'na_a_z' ?>');
+            $('[name="order"]').on('change', function(){
+                $('#sort').submit();
+            });
+        </script>
+    </div>
+    <div class="col-md-4">
+        <button class="btn btn-primary float-end" data-bs-toggle="modal" data-bs-target="#modal" id="add" onclick="addCallback()">Add New Product</button>
+    </div>
+</div>
 <div class="clearfix"></div><br>
 
 <table class="table table-bordered">
@@ -41,7 +68,7 @@
                     ?>
                         <tr>
                             <td><?= $index ?></td>
-                            <td><img src="https://barcode.tec-it.com/barcode.ashx?data=<?= $product['barcode'] ?>" class="img-fluid"></td>
+                            <td><?= $generator->getBarcode($product['barcode'], $generator::TYPE_CODE_128, 1, 30); ?></td>
                             <td><?= $product['product'] ?></td>
                             <td>₱ <?= number_format($product['price_buy'], 2, '.', ',') ?></td>
                             <td>₱ <?= number_format($product['price_sell'], 2, '.', ',') ?></td>
