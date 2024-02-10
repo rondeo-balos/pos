@@ -23,7 +23,7 @@
                 <div class="col-auto">
                     <select class="form-select" name="order">
                         <option value="st_low_high">Stock (Low to High)</option>
-                        <option value="st_high_low">Stock (Low to High)</option>
+                        <option value="st_high_low">Stock (High to Low)</option>
                         <option value="na_a_z">Name (A-Z)</option>
                         <option value="na_z_a">Name (Z-A)</option>
                     </select>

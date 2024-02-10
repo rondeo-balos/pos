@@ -143,6 +143,7 @@ class Db {
         if(!isset($_SESSION['userid']))
             return;
 
+        //$_SESSION['scan_alert'] = $serializedAlert;
         $sql = "UPDATE users SET scan_alert='$serializedAlert' WHERE ID=$_SESSION[userid]";
         $this->query($sql);
     }
@@ -151,6 +152,8 @@ class Db {
         if(!isset($_SESSION['userid']))
             return;
 
+        //$result = $_SESSION['scan_alert'] ?? '';
+        //unset($_SESSION['scan_alert']);
         $sql = "SELECT scan_alert FROM users WHERE ID=$_SESSION[userid]";
         $result = $this->query($sql);
         $this->query("UPDATE users SET scan_alert='' WHERE ID=$_SESSION[userid]");

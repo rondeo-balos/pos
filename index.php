@@ -127,6 +127,7 @@ $app->post('/auth', function(Request $request, Response $response, $args) {
         $password = $result['password'];
         if(password_verify($post['password'], $password)) {
             $_SESSION['userid'] = $result['ID'];
+            $_SESSION['user'] = $result['name'];
             $_SESSION['role'] = $result['role'];
             $_SESSION['expiry'] = $result['expiry'];
 
@@ -579,7 +580,7 @@ function stockFetch($db, $barcode, &$response) {
 $app->post('/getAlert', function(Request $request, Response $response, $args) {
     $db = $this->get('db');
 
-    $result = unserialize($db->getAlert()['scan_alert']);
+    $result = unserialize($db->getAlert());
 
     $payload = json_encode($result);
     $response->getBody()->write($payload);

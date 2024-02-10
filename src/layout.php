@@ -7,12 +7,18 @@
         <title><?= $site_info['app_name'] ?> &#187; <?= $title ?></title>
         <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+        <style>
+            .form-control {
+                background: #3331;
+            }
+        </style>
     </head>
     <body>
         <?= $this->fetch('includes/sidebar.php', ['site_info' => $site_info, 'menu' => $menu]); ?>
         <div class="active-cont my-container">
             <div class="container-fluid py-3 bg-light border-bottom">
                 <strong class="h5"><?= $title ?></strong>
+                <p class="float-end">Welcome <strong><?= $_SESSION['user'] ?></strong>!</p>
             </div>
             <div class="container-fluid py-3">
                 <?= $content ?>
