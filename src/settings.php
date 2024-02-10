@@ -24,3 +24,9 @@
     </div>
 
 </div>
+
+<style>
+    a[href*="/settings"] .nav-link {
+        background: #ffffff26;
+    }
+</style>
