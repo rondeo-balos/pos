@@ -39,13 +39,14 @@ class Db {
         return 0;
     }
 
-    public function queryAll( $sql ) {
+    public function queryAll( $sql, $enablePagination = true ) {
         $per_page_record = $this->per_page_record;
         $page = $this->escape( $_GET['page'] ?? 1);
 
         $start_from = ($page-1) * $per_page_record;
 
-        $query = $this->mysqli->query($sql." LIMIT $start_from, $per_page_record");
+        $pagination = $enablePagination ? " LIMIT $start_from, $per_page_record" : "";
+        $query = $this->mysqli->query($sql.$pagination);
         $results = [];
         while($row = $query->fetch_assoc()) {
             $results[] = $row;
@@ -112,7 +113,7 @@ class Db {
         $site_info = [];
 
         $sql = "SELECT name, value FROM options WHERE autoload = 1";
-        $result = $this->queryAll($sql);
+        $result = $this->queryAll($sql, false);
 
         if($result) {
             foreach($result as $row) {

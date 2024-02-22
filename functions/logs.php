@@ -16,6 +16,7 @@ $app->get('/logs', function(Request $request, Response $response, $args) {
         'logs' => $results,
         'pagination' => $pagination,
         'site_info' => $this->get('site_info'),
+        'low_stocks' => $request->getAttribute('low_stocks'),
         'menu' => $this->get('menu')->getMenu($_SESSION['role'])
     ]);
 });

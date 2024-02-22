@@ -39,6 +39,7 @@ $app = AppFactory::create();
 $app->addErrorMiddleware(true, false, false);
 
 // Load all functions
+require __DIR__ . './middleware.php';
 $dir = __DIR__ . './functions/';
 $files = scandir($dir);
 
@@ -51,16 +52,6 @@ foreach( $files as $file ) {
         }
     }
 }
-/*require __DIR__ . './functions/middleware.php';
-require __DIR__ . './functions/auth.php';
-require __DIR__ . './functions/pos.php';
-require __DIR__ . './functions/orders.php';
-require __DIR__ . './functions/stocks.php';
-require __DIR__ . './functions/products.php';
-require __DIR__ . './functions/users.php';
-require __DIR__ . './functions/logs.php';
-require __DIR__ . './functions/settings.php';
-require __DIR__ . './functions/main.php';*/
 
 function getSession( $db ) {
     $date_ordered = date('Y-m-d h:i:s');

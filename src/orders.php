@@ -33,7 +33,7 @@
                             <td>₱ <?= number_format($changed, 2, '.', ',') ?></td>
                             <td><?= date('F d, Y H:i A', strtotime($date_ordered)) ?></td>
                             <td class="text-center">
-                                <a href="<?= $site_info['url'] ?>/print/<?= $ID ?>" class="btn btn-primary"><i class="fa fa-eye"></i> View Receipt</button>
+                                <a href="<?= $site_info['url'] ?>/print/<?= $ID ?>" target="_blank" class="btn btn-primary"><i class="fa fa-eye"></i> View Receipt</button>
                             </td>
                         </tr>
                     <?php

@@ -18,12 +18,12 @@
                 <input class="form-control" type="password" name="password" placeholder="Password" required>
                 <label>Password</label>
             </div>
-            <div class="form-check text-start my-3">
+            <!--<div class="form-check text-start my-3">
                 <input class="form-check-input" type="checkbox" value="remember-me" id="remember-me">
                 <label class="form-check-label" for="remember-me">
                     Remember me
                 </label>
-            </div>
+            </div>-->
             <button class="btn btn-primary w-100 py-2" type="submit">Log in</button>
         </form>
     </main>
